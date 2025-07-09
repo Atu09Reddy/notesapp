@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Notes App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .note { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
+        form { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<h1>Notes</h1>
+<form th:action="@{/notes}" method="post" th:object="${note}">
+    <input type="text" th:field="*{title}" placeholder="Title" required />
+    <br><br>
+    <textarea th:field="*{content}" placeholder="Content" required></textarea>
+    <br><br>
+    <button type="submit">Add Note</button>
+</form>
+
+<div th:each="note : ${notes}">
+    <div class="note">
+        <h3 th:text="${note.title}"></h3>
+        <p th:text="${note.content}"></p>
+        <a th:href="@{/notes/delete/{id}(id=${note.id})}" style="color:red;">Delete</a>
+    </div>
+</div>
+</body>
+</html>
