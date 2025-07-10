@@ -1,30 +1,17 @@
-# ---- Stage 1: Build the application ----
-FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
+# Start from the OpenJDK 24 base image (matching Java version in pom.xml)
+FROM eclipse-temurin:24-jdk-alpine
 
+# Set the working directory
 WORKDIR /app
 
-# Copy pom.xml and download dependencies (cache layer)
-COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw .
-RUN ./mvnw dependency:go-offline
-
-# Copy the rest of the source code
+# Copy the Maven wrapper or use system Maven if not using wrapper
+# Copy only necessary files for dependencies first to leverage Docker cache
+COPY pom.xml ./
 COPY src ./src
 
-# Package the application
-RUN ./mvnw package
+# Install Maven and build the application (if not using wrapper)
+RUN apk add --no-cache maven && \
+    mvn clean package -DskipTests
 
-# ---- Stage 2: Create runtime image ----
-FROM openjdk:17-jdk-alpine
-
-WORKDIR /app
-
-# Copy the built jar from the builder stage
-COPY --from=builder /app/target/*.jar app.jar
-
-# Expose the application's port
-EXPOSE 8080
-
-# Run the jar file
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the JAR
+CMD ["java", "-jar", "target/notesapp-docker.jar"]
