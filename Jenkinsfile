@@ -14,13 +14,14 @@ pipeline {
     stages {
         stage('checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Atu09Reddy/notesapp.git'
+                git 'https://github.com/Atu09Reddy/notesapp.git'
             }
         }
 
         stage('Build'){
             steps {
                 sh 'docker build -t 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest .'
+                sh 'docker build done .....'
             }
         }
 
@@ -28,6 +29,7 @@ pipeline {
             steps {
                 script {
                     sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 344000030130.dkr.ecr.us-east-1.amazonaws.com'
+                    sh 'Logged into AWS ECR successfully...'
                 }
             }
         }
@@ -36,6 +38,7 @@ pipeline {
             steps {
                 sh 'docker tag notesapp:latest 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest'
                 sh 'docker push 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest'
+                sh 'Pushed to ECR successfully...'
             }
         }
 
@@ -44,6 +47,7 @@ pipeline {
                 sh 'kubectl set image deployment/notesapp notesapp=344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest'
                 sh 'kubectl apply -f k8s/deployment.yaml'
                 sh 'kubectl apply -f k8s/service.yaml'
+                sh 'Deployed to ECS successfully...'
             }
         }
     }
