@@ -6,7 +6,9 @@ pipeline {
         AWS_REGION = 'us-east-1'
         ECR_REPOSITORY = 'notesapp'
         IMAGE_TAG = 'latest'
+        ECR_REGISTRY = "344000030130.dkr.ecr.us-east-1.amazonaws.com"
         DOCKER_IMAGE = "344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest"
+        AWS_CREDENTIALS_ID = 'aws-eks-cred'
     }
 
     stages {
@@ -18,14 +20,14 @@ pipeline {
 
         stage('Build'){
             steps {
-                sh 'docker build -t notesapp:latest .'
+                sh 'docker build -t 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest .'
             }
         }
 
         stage('Login to AWS ECR') {
             steps {
                 script {
-                    sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest'
+                    sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 344000030130.dkr.ecr.us-east-1.amazonaws.com'
                 }
             }
         }
