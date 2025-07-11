@@ -1,11 +1,5 @@
 pipeline {
-    // Change 'agent any' to specify a Docker image
-    agent {
-        docker {
-            image 'my-jenkins-agent:latest' // Replace with your agent image name/tag
-            args '-v /var/run/docker.sock:/var/run/docker.sock' // Mount Docker socket for Docker-in-Docker or host Docker access
-        }
-    }
+    agent any // The initial agent that will run the 'Checkout' and 'Build Jenkins Agent Image' stages
 
     environment {
         AWS_ACCOUNT_ID      = '344000030130'
@@ -17,6 +11,9 @@ pipeline {
         AWS_CREDENTIALS_ID  = 'aws-eks-cred'
         KUBECONFIG_CLUSTER_NAME = 'notesapp-eks-cluster'
         KUBECTL_CONTEXT_NAME = "arn:aws:eks:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/${KUBECONFIG_CLUSTER_NAME}"
+
+        JENKINS_AGENT_IMAGE_NAME = "my-jenkins-agent"
+        JENKINS_AGENT_FULL_IMAGE = "${ECR_REGISTRY}/${JENKINS_AGENT_IMAGE_NAME}:${IMAGE_TAG}"
     }
 
     stages {
@@ -27,37 +24,67 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build and Push Jenkins Agent Image') { // Renamed for clarity
+            // This stage runs on 'agent any' from the top-level
             steps {
-                sh "docker build -t ${DOCKER_IMAGE} ."
-                echo 'Docker image built successfully.'
-            }
-        }
-
-        stage('Login to AWS ECR') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-                    echo 'Logged into AWS ECR successfully.'
+                script { // Use a script block for better error handling in sequential commands
+                    // Login to ECR for pushing the custom agent image
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        echo "Logged into AWS ECR for building and pushing agent image."
+                    }
+                    // Build the Jenkins agent Docker image (from the jenkins-agent.Dockerfile in your repo)
+                    sh "docker build -t ${JENKINS_AGENT_FULL_IMAGE} -f jenkins-agent.Dockerfile ."
+                    echo "Jenkins agent Docker image built: ${JENKINS_AGENT_FULL_IMAGE}"
+                    // Push the Jenkins agent Docker image to ECR
+                    sh "docker push ${JENKINS_AGENT_FULL_IMAGE}"
+                    echo "Jenkins agent Docker image pushed to ECR."
                 }
             }
         }
 
-        stage('Push to ECR') {
-            steps {
-                sh "docker push ${DOCKER_IMAGE}"
-                echo 'Docker image pushed to ECR.'
+        // This stage and all subsequent stages will now run inside the custom Docker agent
+        stage('Run Pipeline in Custom Agent') {
+            agent {
+                docker {
+                    image "${JENKINS_AGENT_FULL_IMAGE}" // Now this image should exist in ECR
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
             }
-        }
+            stages { // Nested stages for clarity to show they run in the custom agent
+                stage('Build Application Docker Image') {
+                    steps {
+                        sh "docker build -t ${DOCKER_IMAGE} ."
+                        echo 'Application Docker image built successfully.'
+                    }
+                }
 
-        stage('Deploy to EKS') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                    sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${KUBECONFIG_CLUSTER_NAME}"
-                    sh "kubectl config use-context ${KUBECTL_CONTEXT_NAME}"
-                    sh 'kubectl apply -f deployment.yaml -n my-app'
-                    sh 'kubectl apply -f service.yaml -n my-app'
-                    echo 'Deployment applied to EKS.'
+                stage('Login to AWS ECR for App Image') { // Good to re-login within the agent if needed
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                            sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                            echo 'Logged into AWS ECR successfully for app image.'
+                        }
+                    }
+                }
+
+                stage('Push Application Image to ECR') {
+                    steps {
+                        sh "docker push ${DOCKER_IMAGE}"
+                        echo 'Application Docker image pushed to ECR.'
+                    }
+                }
+
+                stage('Deploy to EKS') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                            sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${KUBECONFIG_CLUSTER_NAME}"
+                            sh "kubectl config use-context ${KUBECTL_CONTEXT_NAME}"
+                            sh 'kubectl apply -f deployment.yaml -n my-app'
+                            sh 'kubectl apply -f service.yaml -n my-app'
+                            echo 'Deployment applied to EKS.'
+                        }
+                    }
                 }
             }
         }
