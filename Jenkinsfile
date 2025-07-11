@@ -7,52 +7,59 @@ pipeline {
         ECR_REPOSITORY = 'notesapp'
         IMAGE_TAG = 'latest'
         ECR_REGISTRY = "344000030130.dkr.ecr.us-east-1.amazonaws.com"
-        DOCKER_IMAGE = "344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest" // This variable is not used in the commands, but kept for consistency
+        DOCKER_IMAGE = "344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest"
         AWS_CREDENTIALS_ID = 'aws-eks-cred'
     }
 
     stages {
-        stage('checkout') {
+        stage('Checkout Source Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/Atu09Reddy/notesapp.git'
-                echo 'Checked out the repository successfully...'
+                echo 'Source code checked out successfully.'
             }
         }
 
-        stage('Build'){
+        stage('Build Docker Image') {
             steps {
-                // Build with the full ECR tag directly
-                sh 'docker build -t 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest .'
-                echo 'docker build done .....'
+                // Building with the hardcoded DOCKER_IMAGE value
+                sh "docker build -t 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest ."
+                echo 'Docker image built successfully.'
             }
         }
 
-        stage('Login to AWS ECR') {
+        stage('Login and Push to AWS ECR') {
             steps {
                 script {
-                    sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 344000030130.dkr.ecr.us-east-1.amazonaws.com'
-                    echo 'Logged into AWS ECR successfully...'
+                    // Using withAWS for authentication and ECR push
+                    withAWS(credentials: 'aws-eks-cred', region: 'us-east-1') {
+                        sh "docker push 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest"
+                        echo 'Docker image pushed to ECR successfully.'
+                    }
                 }
             }
         }
 
-        stage('Push to ECR') {
+        stage('Deploy to EKS') {
             steps {
-                // No need for 'docker tag' as the build already applied the correct tag
-                sh 'docker push 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest'
-                echo 'Pushed to ECR successfully...'
+                // Using withAWS for EKS deployment, assuming kubectl will use the credentials
+                withAWS(credentials: 'aws-eks-cred', region: 'us-east-1') {
+                    sh 'kubectl apply -f deployment.yaml'
+                    sh 'kubectl apply -f service.yaml'
+                    echo 'Deployed to EKS successfully.'
+                }
             }
         }
+    }
 
-        stage('Deploy to EKS') { // Renamed from ECS as you're using kubectl
-            steps {
-                // Apply the deployment and service manifests.
-                // kubectl apply -f will create them if they don't exist,
-                // and update them if they do. This is the standard way.
-                sh 'kubectl apply -f deployment.yaml' // Assuming the files are in the root of the workspace or specify k8s/deployment.yaml
-                sh 'kubectl apply -f service.yaml'   // Assuming the files are in the root of the workspace or specify k8s/service.yaml
-                echo 'Deployed to EKS successfully...'
-            }
+    post {
+        always {
+            echo 'Pipeline execution completed.'
+        }
+        success {
+            echo 'Build and deployment succeeded.'
+        }
+        failure {
+            echo 'Build or deployment failed.'
         }
     }
 }
