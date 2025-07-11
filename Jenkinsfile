@@ -19,7 +19,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Atu09Reddy/myapp/notesapp.git'
+                git branch: 'main', url: 'https://github.com/Atu09Reddy/notesapp.git'
                 echo 'Checked out the repository successfully...'
             }
         }
