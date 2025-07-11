@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('checkout') {
             steps {
-                git 'https://github.com/Atu09Reddy/notesapp.git'
+                git branch: 'main', url: 'https://github.com/Atu09Reddy/notesapp.git'
                 sh 'Checked out the repository successfully...'
             }
         }
