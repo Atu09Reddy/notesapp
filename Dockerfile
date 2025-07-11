@@ -1,26 +1,22 @@
-# === Build Stage ===
-FROM eclipse-temurin:24-jdk-alpine as builder
-
-WORKDIR /app
-
-# Install Maven and dependencies
-RUN apk add --no-cache maven
-
-# Copy project files
-COPY pom.xml .
-COPY src ./src
-
-# Build the application
-RUN mvn clean package -DskipTests
-
-# === Runtime Stage ===
+# Start from OpenJDK 24 Alpine base image
 FROM eclipse-temurin:24-jdk-alpine
 
+# Install dependencies: curl, unzip, bash, python3, pip, and AWS CLI
+RUN apk add --no-cache curl unzip bash python3 py3-pip maven \
+    && pip3 install --upgrade pip \
+    && pip3 install awscli
+
+# Set working directory
 WORKDIR /app
 
-# Copy only the built jar from the builder stage
-COPY --from=builder /app/target/notesapp-docker.jar .
+# Copy your Maven files and source code
+COPY pom.xml ./
+COPY src ./src
 
-# Run the app
-CMD ["java", "-jar", "notesapp-docker.jar"]
+# Build the application, skipping tests
+RUN mvn clean package -DskipTests
+
+# Run your application
+CMD ["java", "-jar", "target/notesapp-docker.jar"]
+
 
