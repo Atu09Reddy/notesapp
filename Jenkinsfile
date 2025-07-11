@@ -15,7 +15,7 @@ pipeline {
         stage('checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/Atu09Reddy/notesapp.git'
-                sh 'Checked out the repository successfully...'
+                echo 'Checked out the repository successfully...'
             }
         }
 
@@ -23,7 +23,7 @@ pipeline {
             steps {
                 // Build with the full ECR tag directly
                 sh 'docker build -t 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest .'
-                sh 'docker build done .....'
+                echo 'docker build done .....'
             }
         }
 
@@ -31,7 +31,7 @@ pipeline {
             steps {
                 script {
                     sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 344000030130.dkr.ecr.us-east-1.amazonaws.com'
-                    sh 'Logged into AWS ECR successfully...'
+                    echo 'Logged into AWS ECR successfully...'
                 }
             }
         }
@@ -40,7 +40,7 @@ pipeline {
             steps {
                 // No need for 'docker tag' as the build already applied the correct tag
                 sh 'docker push 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest'
-                sh 'Pushed to ECR successfully...'
+                echo 'Pushed to ECR successfully...'
             }
         }
 
@@ -51,7 +51,7 @@ pipeline {
                 // and update them if they do. This is the standard way.
                 sh 'kubectl apply -f deployment.yaml' // Assuming the files are in the root of the workspace or specify k8s/deployment.yaml
                 sh 'kubectl apply -f service.yaml'   // Assuming the files are in the root of the workspace or specify k8s/service.yaml
-                sh 'Deployed to EKS successfully...'
+                echo 'Deployed to EKS successfully...'
             }
         }
     }
