@@ -45,9 +45,7 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                    // Uncomment and update the cluster name if kubeconfig needs to be updated
-                    // sh "aws eks update-kubeconfig --region ${AWS_REGION} --name your-cluster-name"
-
+                    sh "aws eks update-kubeconfig --region ${AWS_REGION} --name notesapp-eks-cluster" // <-- UNCOMMENT AND UPDATE THIS LINE!
                     sh 'kubectl apply -f deployment.yaml'
                     sh 'kubectl apply -f service.yaml'
                     echo 'Deployment applied to EKS.'
