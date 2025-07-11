@@ -21,15 +21,15 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest .'
+                sh "docker build -t ${DOCKER_IMAGE} ."
                 echo 'Docker image built successfully.'
             }
         }
 
         stage('Login to AWS ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-cred']]) {
-                    sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 344000030130.dkr.ecr.us-east-1.amazonaws.com'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                     echo 'Logged into AWS ECR successfully.'
                 }
             }
@@ -37,16 +37,17 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                sh 'docker push 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest'
+                sh "docker push ${DOCKER_IMAGE}"
                 echo 'Docker image pushed to ECR.'
             }
         }
 
         stage('Deploy to EKS') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-cred']]) {
-                    // Optional: update kubeconfig if needed
-                    // sh 'aws eks update-kubeconfig --region us-east-1 --name <your-cluster-name>'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    // Uncomment and update the cluster name if kubeconfig needs to be updated
+                    // sh "aws eks update-kubeconfig --region ${AWS_REGION} --name your-cluster-name"
+
                     sh 'kubectl apply -f deployment.yaml'
                     sh 'kubectl apply -f service.yaml'
                     echo 'Deployment applied to EKS.'
