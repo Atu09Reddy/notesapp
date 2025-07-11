@@ -21,7 +21,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                // Building with the hardcoded DOCKER_IMAGE value
+                // Build the Docker image with the direct value of DOCKER_IMAGE
                 sh "docker build -t 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest ."
                 echo 'Docker image built successfully.'
             }
@@ -30,8 +30,9 @@ pipeline {
         stage('Login and Push to AWS ECR') {
             steps {
                 script {
-                    // Using withAWS for authentication and ECR push
+                    // Use the 'withAWS' step with direct values for credentials and region
                     withAWS(credentials: 'aws-eks-cred', region: 'us-east-1') {
+                        // Push the Docker image with its direct name
                         sh "docker push 344000030130.dkr.ecr.us-east-1.amazonaws.com/notesapp:latest"
                         echo 'Docker image pushed to ECR successfully.'
                     }
@@ -41,7 +42,7 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-                // Using withAWS for EKS deployment, assuming kubectl will use the credentials
+                // Use the 'withAWS' block with direct values for credentials and region
                 withAWS(credentials: 'aws-eks-cred', region: 'us-east-1') {
                     sh 'kubectl apply -f deployment.yaml'
                     sh 'kubectl apply -f service.yaml'
