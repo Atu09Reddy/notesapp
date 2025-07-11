@@ -4,7 +4,7 @@ pipeline {
     environment {
         AWS_ACCOUNT_ID      = '344000030130'
         AWS_REGION          = 'us-east-1'
-        ECR_REPOSITORY      = 'myapp/notesapp'
+        ECR_REPOSITORY      = 'myapp/notesapp' // <-- Keep this if your ECR repo is truly 'myapp/notesapp'
         IMAGE_TAG           = 'latest'
         ECR_REGISTRY        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         DOCKER_IMAGE        = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
@@ -19,39 +19,35 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                // This line now matches your confirmed GitHub repository URL
                 git branch: 'main', url: 'https://github.com/Atu09Reddy/notesapp.git'
                 echo 'Checked out the repository successfully...'
             }
         }
 
-        stage('Build and Push Jenkins Agent Image') { // Renamed for clarity
-            // This stage runs on 'agent any' from the top-level
+        stage('Build and Push Jenkins Agent Image') {
             steps {
-                script { // Use a script block for better error handling in sequential commands
-                    // Login to ECR for pushing the custom agent image
+                script {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                         sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         echo "Logged into AWS ECR for building and pushing agent image."
                     }
-                    // Build the Jenkins agent Docker image (from the jenkins-agent.Dockerfile in your repo)
                     sh "docker build -t ${JENKINS_AGENT_FULL_IMAGE} -f jenkins-agent.Dockerfile ."
                     echo "Jenkins agent Docker image built: ${JENKINS_AGENT_FULL_IMAGE}"
-                    // Push the Jenkins agent Docker image to ECR
                     sh "docker push ${JENKINS_AGENT_FULL_IMAGE}"
                     echo "Jenkins agent Docker image pushed to ECR."
                 }
             }
         }
 
-        // This stage and all subsequent stages will now run inside the custom Docker agent
         stage('Run Pipeline in Custom Agent') {
             agent {
                 docker {
-                    image "${JENKINS_AGENT_FULL_IMAGE}" // Now this image should exist in ECR
+                    image "${JENKINS_AGENT_FULL_IMAGE}"
                     args '-v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
-            stages { // Nested stages for clarity to show they run in the custom agent
+            stages {
                 stage('Build Application Docker Image') {
                     steps {
                         sh "docker build -t ${DOCKER_IMAGE} ."
@@ -59,7 +55,7 @@ pipeline {
                     }
                 }
 
-                stage('Login to AWS ECR for App Image') { // Good to re-login within the agent if needed
+                stage('Login to AWS ECR for App Image') {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                             sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
